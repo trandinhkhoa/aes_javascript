@@ -102,30 +102,64 @@ function key_expansion(key){
     return round_key;
 }
 
+function mul_by_2(b){
+    var r = b;
+    var h;
+    if ((b >> 7) == 1){
+        h = 255;
+    } else{
+        h = 0;
+    }
+    r = (r << 1) & (0xff);
+    h = h & 0x1B;
+    r = r ^ h;
+    return r;
+}
+
 function mix_column(b){
     var d = [];
-    var r = b.slice();
-    var h;
-    for (var i = 0; i < 4; i++){
-        if ((b[i] >> 7) == 1){
-            h = 255;
-        } else{
-            h = 0;
-        }
-        r[i] = (r[i] << 1) & (0xff);
-        h = h & 0x1B;
-        r[i] = r[i] ^ h;
-    }
-    d[0] = r[0] ^ r[1] ^ b[1] ^ b[2] ^ b[3];
-    d[1] = b[0] ^ r[1] ^ r[2] ^ b[2] ^ b[3];
-    d[2] = b[0] ^ b[1] ^ r[2] ^ r[3] ^ b[3];
-    d[3] = r[0] ^ b[0] ^ b[1] ^ b[2] ^ r[3];
+    d[0] =  mul_by_2(b[0]) ^ (mul_by_2(b[1]) ^ b[1]) ^ b[2] ^ b[3];
+    d[1] =  b[0] ^ mul_by_2(b[1]) ^ (mul_by_2(b[2]) ^ b[2]) ^ b[3];
+    d[2] =  b[0] ^ b[1] ^ mul_by_2(b[2]) ^ (mul_by_2(b[3]) ^ b[3]);
+    d[3] =  (mul_by_2(b[0]) ^ b[0]) ^ b[1] ^ b[2] ^ mul_by_2(b[3]);
+    return d;
+}
+
+function mul_by_9(b){
+    x = mul_by_2(mul_by_2(mul_by_2(b))) ^ b;
+    return x;
+}
+
+function mul_by_11(b){
+    x = mul_by_2(mul_by_2(mul_by_2(b)) ^ b) ^ b;
+    return x;
+}
+
+function mul_by_13(b){
+    x = mul_by_2(mul_by_2(mul_by_2(b) ^ b)) ^ b;
+    return x;
+}
+
+function mul_by_14(b){
+    x = mul_by_2(mul_by_2(mul_by_2(b) ^ b) ^ b);
+    return x;
+}
+
+function InverseMixColumn(b){
+// x×9=(((x×2)×2)×2)+x
+// x×11=((((x×2)×2)+x)×2)+x
+// x×13=((((x×2)+x)×2)×2)+x
+// x×14=((((x×2)+x)×2)+x)×2
+    var d = [];
+    d[0] = mul_by_14(b[0]) ^ mul_by_11(b[1]) ^ mul_by_13(b[2]) ^ mul_by_9(b[3]);
+    d[1] = mul_by_9(b[0]) ^ mul_by_14(b[1]) ^ mul_by_11(b[2]) ^ mul_by_13(b[3]);
+    d[2] = mul_by_13(b[0]) ^ mul_by_9(b[1]) ^ mul_by_14(b[2]) ^ mul_by_11(b[3]);
+    d[3] = mul_by_11(b[0]) ^ mul_by_13(b[1]) ^ mul_by_9(b[2]) ^ mul_by_14(b[3]);
     return d;
 }
 
 // TODO: remove this
 function AddRoundKey(plain_text, round_key){
-    console.log("... Adding Round Key");
     words = stringToWord(plain_text);
     // console.log(words[0].toString(16), '\t', words[1].toString(16), '\t', words[2].toString(16), '\t', words[3].toString(16));
     new_words = [];
@@ -136,7 +170,6 @@ function AddRoundKey(plain_text, round_key){
 }
 
 function SubBytes(A){
-    console.log('... Sub Bytes');
     new_A = A.slice();
     for (var i = 0; i < N; i++){
         for (var j = 0; j < N; j++){
@@ -146,8 +179,7 @@ function SubBytes(A){
     return new_A;
 }
 
-function SubBytes_Inverse(A){
-    console.log('... Sub Bytes Inverse');
+function InverseSubByte(A){
     new_A = A.slice();
     for (var i = 0; i < N; i++){
         for (var j = 0; j < N; j++){
@@ -158,10 +190,17 @@ function SubBytes_Inverse(A){
 }
 
 function ShiftRow(A){
-    console.log('... ShiftRow');
     new_A = A.slice();
-    for (var i = 0; i < words.length; i++){
-        new_A[i] = new_A[i].slice(i,new_A[i].length).concat(new_A[i].slice(0,i));
+    for (var i = 0; i < N; i++){
+        new_A[i] = new_A[i].slice(i,N).concat(new_A[i].slice(0,i));
+    }
+    return new_A;
+}
+
+function InverseShiftRow(A){
+    new_A = A.slice();
+    for (var i = 0; i < N; i++){
+        new_A[i] = new_A[i].slice(N-i,N).concat(new_A[i].slice(0,N-i));
     }
     return new_A;
 }
@@ -179,6 +218,7 @@ function encryption(plain_text, key){
     }
 
     // Initial round
+    console.log("... Adding Round Key");
     words = AddRoundKey(plain_text, round_key_matrix[0]);
     // console.log(words[0].toString(16), '\t', words[1].toString(16), '\t', words[2].toString(16), '\t', words[3].toString(16));
 
@@ -189,15 +229,16 @@ function encryption(plain_text, key){
     // print_matrix(A);
     // Next 9 rounds
     for (var round = 1; round < R-1; round++){
-        console.log('-------ROUND ', round);
+        // console.log('-------ROUND ', round);
         // SubBytes
         A = SubBytes(A);
         // print_matrix(A);
         // Shift Row
+        // console.log('... ShiftRow');
         A = ShiftRow(A);
         // print_matrix(A);
         // Mix Column
-        console.log('... Mix Column');
+        // console.log('... Mix Column');
         for (var i = 0; i < 4; i++){
             column = [A[0][i], A[1][i], A[2][i], A[3][i]];
             new_column = mix_column(column);
@@ -209,7 +250,7 @@ function encryption(plain_text, key){
         // print_matrix(A);
 
         // Add Round Key
-        console.log('... Add Round Key');
+        // console.log('... Add Round Key');
         for (var i = 0; i < 4; i++){
             A[0][i] = A[0][i] ^ ((round_key_matrix[round][i] >> 24) & 0xFF) ;
             A[1][i] = A[1][i] ^ ((round_key_matrix[round][i] >> 16) & 0xFF) ;
@@ -227,7 +268,6 @@ function encryption(plain_text, key){
     A = ShiftRow(A);
     // print_matrix(A);
     // Add Round Key
-    console.log('... Add Round Key');
     for (var i = 0; i < 4; i++){
         A[0][i] = A[0][i] ^ ((round_key_matrix[round][i] >> 24) & 0xFF) ;
         A[1][i] = A[1][i] ^ ((round_key_matrix[round][i] >> 16) & 0xFF) ;
@@ -239,62 +279,51 @@ function encryption(plain_text, key){
 
 
 function decryption(A, key){
+    console.log('-----Decrypt----');
     round_key_matrix = key_expansion(key);
 
-    // Initial round
+    // AddRoundKey(State, ExpandedKey[10]);
     for (var i = 0; i < 4; i++){
-        A[0][i] = A[0][i] ^ ((round_key_matrix[0][i] >> 24) & 0xFF) ;
-        A[1][i] = A[1][i] ^ ((round_key_matrix[0][i] >> 16) & 0xFF) ;
-        A[2][i] = A[2][i] ^ ((round_key_matrix[0][i] >> 8) & 0xFF) ;
-        A[3][i] = A[3][i] ^ ((round_key_matrix[0][i] ) & 0xFF) ;
+        A[0][i] = A[0][i] ^ ((round_key_matrix[10][i] >> 24) & 0xFF) ;
+        A[1][i] = A[1][i] ^ ((round_key_matrix[10][i] >> 16) & 0xFF) ;
+        A[2][i] = A[2][i] ^ ((round_key_matrix[10][i] >> 8) & 0xFF) ;
+        A[3][i] = A[3][i] ^ ((round_key_matrix[10][i] ) & 0xFF) ;
     }
+    // InverseShiftRow
+    A = InverseShiftRow(A);
+
+    // InverseSubByte
+    A = InverseSubByte(A);
 
     // Next 9 rounds
-    for (var round = 1; round < R-1; round++){
-        console.log('-------ROUND ', round);
-        // SubBytes
-        A = SubBytes_Inverse(A);
-        print_matrix(A);
-        // Shift Row
-        A = ShiftRow(A);
-        print_matrix(A);
-        // Mix Column
-        console.log('... Mix Column');
-        for (var i = 0; i < 4; i++){
-            column = [A[0][i], A[1][i], A[2][i], A[3][i]];
-            new_column = mix_column(column);
-            A[0][i] = new_column[0];
-            A[1][i] = new_column[1];
-            A[2][i] = new_column[2];
-            A[3][i] = new_column[3];
-        }
-        print_matrix(A);
-
-        // Add Round Key
-        console.log('... Add Round Key');
+    for (var round = R-2; round > 0; round--){
+        // AddRoundKey(State, ExpandedKey[10]);
         for (var i = 0; i < 4; i++){
             A[0][i] = A[0][i] ^ ((round_key_matrix[round][i] >> 24) & 0xFF) ;
             A[1][i] = A[1][i] ^ ((round_key_matrix[round][i] >> 16) & 0xFF) ;
             A[2][i] = A[2][i] ^ ((round_key_matrix[round][i] >> 8) & 0xFF) ;
             A[3][i] = A[3][i] ^ ((round_key_matrix[round][i] ) & 0xFF) ;
         }
-        print_matrix(A);
+        // InverseMixColumn
+        for (var i = 0; i < 4; i++){
+            column = [A[0][i], A[1][i], A[2][i], A[3][i]];
+            new_column = InverseMixColumn(column);
+            A[0][i] = new_column[0];
+            A[1][i] = new_column[1];
+            A[2][i] = new_column[2];
+            A[3][i] = new_column[3];
+        }
+        // InverseShiftRow
+        A = InverseShiftRow(A);
+        //InverseSubBytes
+        A = InverseSubByte(A);
     }
     // Last Round
-    console.log('-------LAST ROUND--------');
-    // SubBytes
-    A = SubBytes(A);
-    print_matrix(A);
-    // Shift Row
-    A = ShiftRow(A);
-    print_matrix(A);
-    // Add Round Key
-    console.log('... Add Round Key');
     for (var i = 0; i < 4; i++){
-        A[0][i] = A[0][i] ^ ((round_key_matrix[round][i] >> 24) & 0xFF) ;
-        A[1][i] = A[1][i] ^ ((round_key_matrix[round][i] >> 16) & 0xFF) ;
-        A[2][i] = A[2][i] ^ ((round_key_matrix[round][i] >> 8) & 0xFF) ;
-        A[3][i] = A[3][i] ^ ((round_key_matrix[round][i] ) & 0xFF) ;
+        A[0][i] = A[0][i] ^ ((round_key_matrix[0][i] >> 24) & 0xFF) ;
+        A[1][i] = A[1][i] ^ ((round_key_matrix[0][i] >> 16) & 0xFF) ;
+        A[2][i] = A[2][i] ^ ((round_key_matrix[0][i] >> 8) & 0xFF) ;
+        A[3][i] = A[3][i] ^ ((round_key_matrix[0][i] ) & 0xFF) ;
     }
     return A;
 }
