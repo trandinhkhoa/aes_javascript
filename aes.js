@@ -116,7 +116,7 @@ function mul_by_2(b){
     return r;
 }
 
-function mix_column(b){
+function MixColumn(b){
     var d = [];
     d[0] =  mul_by_2(b[0]) ^ (mul_by_2(b[1]) ^ b[1]) ^ b[2] ^ b[3];
     d[1] =  b[0] ^ mul_by_2(b[1]) ^ (mul_by_2(b[2]) ^ b[2]) ^ b[3];
@@ -146,10 +146,10 @@ function mul_by_14(b){
 }
 
 function InverseMixColumn(b){
-// x×9=(((x×2)×2)×2)+x
-// x×11=((((x×2)×2)+x)×2)+x
-// x×13=((((x×2)+x)×2)×2)+x
-// x×14=((((x×2)+x)×2)+x)×2
+    // x×9=(((x×2)×2)×2)+x
+    // x×11=((((x×2)×2)+x)×2)+x
+    // x×13=((((x×2)+x)×2)×2)+x
+    // x×14=((((x×2)+x)×2)+x)×2
     var d = [];
     d[0] = mul_by_14(b[0]) ^ mul_by_11(b[1]) ^ mul_by_13(b[2]) ^ mul_by_9(b[3]);
     d[1] = mul_by_9(b[0]) ^ mul_by_14(b[1]) ^ mul_by_11(b[2]) ^ mul_by_13(b[3]);
@@ -158,18 +158,7 @@ function InverseMixColumn(b){
     return d;
 }
 
-// TODO: remove this
-function AddRoundKey(plain_text, round_key){
-    words = stringToWord(plain_text);
-    // console.log(words[0].toString(16), '\t', words[1].toString(16), '\t', words[2].toString(16), '\t', words[3].toString(16));
-    new_words = [];
-    for (var i = 0; i < words.length; i++){
-        new_words[i] = words[i] ^ round_key[i];
-    }
-    return new_words;
-}
-
-function SubBytes(A){
+function SubByte(A){
     new_A = A.slice();
     for (var i = 0; i < N; i++){
         for (var j = 0; j < N; j++){
@@ -212,61 +201,55 @@ function print_matrix(A){
 }
 
 function encryption(plain_text, key){
+    // Key expansion
     round_key_matrix = key_expansion(key);
     for (var i = 0; i < R; i++){
         console.log(round_key_matrix[i][0].toString(16), '\t', round_key_matrix[i][1].toString(16), '\t', round_key_matrix[i][2].toString(16), '\t', round_key_matrix[i][3].toString(16));
     }
 
     // Initial round
-    console.log("... Adding Round Key");
-    words = AddRoundKey(plain_text, round_key_matrix[0]);
-    // console.log(words[0].toString(16), '\t', words[1].toString(16), '\t', words[2].toString(16), '\t', words[3].toString(16));
+    words = stringToWord(plain_text);
+    new_words = [];
+    for (var i = 0; i < words.length; i++){
+        new_words[i] = words[i] ^ round_key_matrix[0][i];
+    }
+    words = new_words.slice();
 
     var A = [];
     for (var i = 0; i < words.length; i++){
         A.push([(words[0] >> (24 - (i*8))) & 0xFF, (words[1] >> (24 - (i*8))) & 0xFF, (words[2] >> (24 - (i*8))) & 0xFF, (words[3] >> (24 - (i*8))) & 0xFF]);
     }
-    // print_matrix(A);
+
     // Next 9 rounds
     for (var round = 1; round < R-1; round++){
-        // console.log('-------ROUND ', round);
-        // SubBytes
-        A = SubBytes(A);
-        // print_matrix(A);
-        // Shift Row
-        // console.log('... ShiftRow');
+        // SubByte
+        A = SubByte(A);
+        // ShiftRow
         A = ShiftRow(A);
-        // print_matrix(A);
-        // Mix Column
-        // console.log('... Mix Column');
+        // MixColumn
         for (var i = 0; i < 4; i++){
             column = [A[0][i], A[1][i], A[2][i], A[3][i]];
-            new_column = mix_column(column);
+            new_column = MixColumn(column);
             A[0][i] = new_column[0];
             A[1][i] = new_column[1];
             A[2][i] = new_column[2];
             A[3][i] = new_column[3];
         }
-        // print_matrix(A);
 
         // Add Round Key
-        // console.log('... Add Round Key');
         for (var i = 0; i < 4; i++){
             A[0][i] = A[0][i] ^ ((round_key_matrix[round][i] >> 24) & 0xFF) ;
             A[1][i] = A[1][i] ^ ((round_key_matrix[round][i] >> 16) & 0xFF) ;
             A[2][i] = A[2][i] ^ ((round_key_matrix[round][i] >> 8) & 0xFF) ;
             A[3][i] = A[3][i] ^ ((round_key_matrix[round][i] ) & 0xFF) ;
         }
-        // print_matrix(A);
     }
     // Last Round
-    console.log('-------LAST ROUND--------');
-    // SubBytes
-    A = SubBytes(A);
-    // print_matrix(A);
+    console.log('-------LAST ENCRYPTION ROUND--------');
+    // SubByte
+    A = SubByte(A);
     // Shift Row
     A = ShiftRow(A);
-    // print_matrix(A);
     // Add Round Key
     for (var i = 0; i < 4; i++){
         A[0][i] = A[0][i] ^ ((round_key_matrix[round][i] >> 24) & 0xFF) ;
@@ -328,10 +311,22 @@ function decryption(A, key){
     return A;
 }
 
+function byteToString(A){
+    var str = "";
+    for (var i = 0; i < 4; i++){
+        for (var j = 0; j < 4; j++){
+            str = str.concat(String.fromCharCode(A[j][i]));
+        }
+    }
+    return str;
+}
+
 plain_text = ("Two One Nine Two");
 key = "Thats my Kung Fu";
-var A = [];
-E = encryption(plain_text, key);
+
+var E = encryption(plain_text, key);
 print_matrix(E);
-D = decryption(E, key);
+var D = decryption(E, key);
 print_matrix(D);
+console.log("Original text = ", byteToString(D));
+
