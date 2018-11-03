@@ -62,6 +62,7 @@ function rot_sub(w){
 
 // String to array of 32-bits word
 function stringToWord(str){
+    console.log("String =", str);
     K_byte = [];
     for (var i = 0; i < str.length; i++) {
       var code = str.charCodeAt(i);
@@ -321,11 +322,66 @@ function byteToString(A){
     return str;
 }
 
+function printArray(A){
+    str = "";
+    for (var i = 0; i < A.length; i++){
+        if ((i % 2 == 0) && (i != 0)){
+            str = str.concat(" ")
+            str = str.concat(A[i].toString(16))
+        } else {
+            str = str.concat(A[i].toString(16))
+        }
+    }
+    console.log(str);
+}
+
+function arrayToMatrix(array, size){
+    A = [];
+    index = 0;
+    for (var i = 0; i < size; i++){
+        row = [];
+        for (var j = 0; j < size; j++){
+            row[j] = array[index]; 
+            index++;
+        }
+        A.push(row);
+    }
+    return A;
+}
+
+function matrixToArray(A){
+    index = 0;
+    array = [];
+    for (var i = 0; i < A.length; i ++){
+        for (var j = 0; j < A[i].length; j++){
+            array[index] = A[j][i];
+            index++;
+        }
+    }
+    return array;
+}
+
 plain_text = ("Two One Nine Two");
+nonce = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+// plain_text = "\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41";
 key = "Thats my Kung Fu";
 
-var E = encryption(plain_text, key);
+// ENCRYPTION
+var E = encryption(nonce, key);
 print_matrix(E);
+
+var E_byte_array = [];
+console.log("+++++++");
+E_byte_array = matrixToArray(E);
+
+// mode of operation CTR
+for (var i = 0; i < plain_text.length; i++){
+    E_byte_array[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
+}
+
+printArray(E_byte_array);
+
+// DECRYPTION
 var D = decryption(E, key);
 print_matrix(D);
 console.log("Original text = ", byteToString(D));
