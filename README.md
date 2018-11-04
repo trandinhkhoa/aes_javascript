@@ -1,6 +1,6 @@
 ### AES-128 implementatin with CTR mode of operation
 
-This AES implementation is not intended real use, I did it to understand the algorithm better. You can use `openssl` to check the result.
+This AES implementation is not intended for practical use, I did it to understand the algorithm better. You can use `openssl` to check the result.
 
 **Note**: This implementation currently only works with ASCII character (a..zA..z0..9)
 
