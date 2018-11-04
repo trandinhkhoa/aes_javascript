@@ -60,9 +60,8 @@ function rot_sub(w){
     return new_w;
 }
 
-// String to array of 32-bits word
+// String to array of 4 32-bits word
 function stringToWord(str){
-    console.log("String =", str);
     K_byte = [];
     for (var i = 0; i < str.length; i++) {
       var code = str.charCodeAt(i);
@@ -201,24 +200,24 @@ function print_matrix(A){
     }
 }
 
-function encryption(plain_text, key){
+function encryption(matrix, key){
+    // copy to new matrix A to avoid modifying the parameter
+    var A = [];
+    for (var i = 0; i < matrix.length; i++){
+        A.push(matrix[i].slice());
+    }
     // Key expansion
     round_key_matrix = key_expansion(key);
-    for (var i = 0; i < R; i++){
-        console.log(round_key_matrix[i][0].toString(16), '\t', round_key_matrix[i][1].toString(16), '\t', round_key_matrix[i][2].toString(16), '\t', round_key_matrix[i][3].toString(16));
-    }
+    // for (var i = 0; i < R; i++){
+    //     console.log(round_key_matrix[i][0].toString(16), '\t', round_key_matrix[i][1].toString(16), '\t', round_key_matrix[i][2].toString(16), '\t', round_key_matrix[i][3].toString(16));
+    // }
 
     // Initial round
-    words = stringToWord(plain_text);
-    new_words = [];
-    for (var i = 0; i < words.length; i++){
-        new_words[i] = words[i] ^ round_key_matrix[0][i];
-    }
-    words = new_words.slice();
-
-    var A = [];
-    for (var i = 0; i < words.length; i++){
-        A.push([(words[0] >> (24 - (i*8))) & 0xFF, (words[1] >> (24 - (i*8))) & 0xFF, (words[2] >> (24 - (i*8))) & 0xFF, (words[3] >> (24 - (i*8))) & 0xFF]);
+    for (var i = 0; i < 4; i++){
+        A[0][i] = A[0][i] ^ ((round_key_matrix[0][i] >> 24) & 0xFF) ;
+        A[1][i] = A[1][i] ^ ((round_key_matrix[0][i] >> 16) & 0xFF) ;
+        A[2][i] = A[2][i] ^ ((round_key_matrix[0][i] >> 8) & 0xFF) ;
+        A[3][i] = A[3][i] ^ ((round_key_matrix[0][i] ) & 0xFF) ;
     }
 
     // Next 9 rounds
@@ -246,7 +245,6 @@ function encryption(plain_text, key){
         }
     }
     // Last Round
-    console.log('-------LAST ENCRYPTION ROUND--------');
     // SubByte
     A = SubByte(A);
     // Shift Row
@@ -312,12 +310,10 @@ function decryption(A, key){
     return A;
 }
 
-function byteToString(A){
+function byteArrayToString(A){
     var str = "";
-    for (var i = 0; i < 4; i++){
-        for (var j = 0; j < 4; j++){
-            str = str.concat(String.fromCharCode(A[j][i]));
-        }
+    for (var i = 0; i < A.length; i++){
+            str = str.concat(String.fromCharCode(A[i]));
     }
     return str;
 }
@@ -361,28 +357,82 @@ function matrixToArray(A){
     return array;
 }
 
-plain_text = ("Two One Nine Two");
-nonce = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-// plain_text = "\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41\x41";
-key = "Thats my Kung Fu";
-
-// ENCRYPTION
-var E = encryption(nonce, key);
-print_matrix(E);
-
-var E_byte_array = [];
-console.log("+++++++");
-E_byte_array = matrixToArray(E);
-
-// mode of operation CTR
-for (var i = 0; i < plain_text.length; i++){
-    E_byte_array[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
+function stringToMatrix(plain_text){
+    words = stringToWord(plain_text);
+    var A = [];
+    for (var i = 0; i < words.length; i++){
+        A.push([(words[0] >> (24 - (i*8))) & 0xFF, (words[1] >> (24 - (i*8))) & 0xFF, (words[2] >> (24 - (i*8))) & 0xFF, (words[3] >> (24 - (i*8))) & 0xFF]);
+    }
+    return A;
 }
 
-printArray(E_byte_array);
+// matrix of byte
+// lowercase
+// input string
+function nonceToMatrix(str){
+    A = [];
+    for (var i = 0; i < N; i++){
+        A.push([0, 0, 0, 0]);
+    }
 
-// DECRYPTION
-var D = decryption(E, key);
-print_matrix(D);
-console.log("Original text = ", byteToString(D));
+    if (str.length < 16){
+        for (var i = 0; i < (16 - str.length); i++){
+            str = str.concat('0');
+        }
+    }
 
+    index = 0;
+    for (var i = 0; i < N; i++){
+        for (var j = 0; j < N; j++){
+            A[j][i] = parseInt(str[index] + str[index+1], 16);
+            index = index + 2;
+            if (index > (str.length-1)) break;
+        }
+    }
+    return A;
+}
+
+key = "Thats my Kung Fu";
+mode_of_operation = "CTR";
+// plain_text = ("Two One Nine Two");
+// plain_text = "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff";
+plain_text = ("Hello");
+nonce = "f0f10000000000000000000000000001"
+nonce_matrix = nonceToMatrix(nonce);
+key = "Thats my Kung Fu";
+
+if (mode_of_operation == "CTR"){
+    // mode of operation CTR ENCRYPTION
+    var E = encryption(nonce_matrix, key);
+    var E_byte_array = matrixToArray(E);
+    var cipher_text = [];
+    for (var i = 0; i < plain_text.length; i++){
+        cipher_text[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
+    }
+    printArray(cipher_text);
+
+    // mode of operation CTR DECRYPTION
+    var D = encryption(nonce_matrix, key);
+    var D_byte_array = matrixToArray(D);
+    var decipher_text = [];
+    for (var i = 0; i < plain_text.length; i++){
+        decipher_text[i] = D_byte_array[i] ^ cipher_text[i]; 
+    }
+    // mode of operation CTR ENCRYPTION
+    console.log("Decrypted Msg = ", byteArrayToString(decipher_text));
+} else {
+    console.log('TODO OTHER MODE');
+    // var E = encryption(nonce, key);
+    // index = 0;
+    // for (var i = 0; i < 4; i ++){
+    //     for (var j = 0; j < 4; j++){
+    //         E[j][i] = E[j][i] ^ plain_text.charCodeAt(index); 
+    //         index++;
+    //     }
+    // }
+    // print_matrix(E);
+    //
+    // var D = decryption(E, key);
+    // print_matrix(D);
+    // console.log("Original text = ", byteToString(D));
+}
