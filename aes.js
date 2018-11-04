@@ -392,11 +392,15 @@ function nonceToMatrix(str){
     return A;
 }
 
-key = "Thats my Kung Fu";
+// key = "Thats my Kung Fu";
+key = process.argv[2];
+
 mode_of_operation = "CTR";
 // plain_text = ("Two One Nine Two");
 // plain_text = "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff";
-plain_text = ("Hello");
+// plain_text = ("Hello");
+plain_text = process.argv[3];
+
 nonce = "f0f10000000000000000000000000001"
 nonce_matrix = nonceToMatrix(nonce);
 key = "Thats my Kung Fu";
@@ -409,6 +413,7 @@ if (mode_of_operation == "CTR"){
     for (var i = 0; i < plain_text.length; i++){
         cipher_text[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
     }
+    console.log("Cipher text = ");
     printArray(cipher_text);
 
     // mode of operation CTR DECRYPTION
@@ -419,7 +424,8 @@ if (mode_of_operation == "CTR"){
         decipher_text[i] = D_byte_array[i] ^ cipher_text[i]; 
     }
     // mode of operation CTR ENCRYPTION
-    console.log("Decrypted Msg = ", byteArrayToString(decipher_text));
+    console.log("Decrypted Msg = ");
+    console.log(byteArrayToString(decipher_text));
 } else {
     console.log('TODO OTHER MODE');
     // var E = encryption(nonce, key);
