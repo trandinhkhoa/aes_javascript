@@ -392,14 +392,21 @@ function nonceToMatrix(str){
     return A;
 }
 
-// key = "Thats my Kung Fu";
+function splitText(str){
+    index = 0;
+    words = [];
+    for (var i = 0; i < (str.length); i=i+16){
+        words[index] = str.slice(i,i+16);
+        index++;
+    }
+    return words;
+}
+
 key = process.argv[2];
 
 mode_of_operation = "CTR";
-// plain_text = ("Two One Nine Two");
-// plain_text = "\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff";
-// plain_text = ("Hello");
 plain_text = process.argv[3];
+blocks = splitText(plain_text);
 
 nonce = "f0f10000000000000000000000000001"
 nonce_matrix = nonceToMatrix(nonce);
@@ -407,38 +414,36 @@ key = "Thats my Kung Fu";
 
 if (mode_of_operation == "CTR"){
     // mode of operation CTR ENCRYPTION
-    var E = encryption(nonce_matrix, key);
-    var E_byte_array = matrixToArray(E);
-    var cipher_text = [];
-    for (var i = 0; i < plain_text.length; i++){
-        cipher_text[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
+    cipher_text = [];
+    for (var k = 0; k < blocks.length; k++){
+        plain_text = blocks[k];
+
+        var E = encryption(nonce_matrix, key);
+        var E_byte_array = matrixToArray(E);
+        var cipher_block = [];
+        for (var i = 0; i < plain_text.length; i++){
+            cipher_block[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
+        }
+        cipher_text = cipher_text.concat(cipher_block);
     }
     console.log("Cipher text = ");
     printArray(cipher_text);
 
+    input = splitText(cipher_text);
+    decipher_text = [];
     // mode of operation CTR DECRYPTION
-    var D = encryption(nonce_matrix, key);
-    var D_byte_array = matrixToArray(D);
-    var decipher_text = [];
-    for (var i = 0; i < plain_text.length; i++){
-        decipher_text[i] = D_byte_array[i] ^ cipher_text[i]; 
+    for (var x = 0; x < input.length; x++){
+        input_block = input[x];
+        var D = encryption(nonce_matrix, key);
+        var D_byte_array = matrixToArray(D);
+        var decipher_block = [];
+        for (var i = 0; i < input_block.length; i++){
+            decipher_block[i] = D_byte_array[i] ^ input_block[i]; 
+        }
+        decipher_text = decipher_text.concat(decipher_block);
     }
-    // mode of operation CTR ENCRYPTION
-    console.log("Decrypted Msg = ");
+    console.log("deCipher text = ");
     console.log(byteArrayToString(decipher_text));
 } else {
     console.log('TODO OTHER MODE');
-    // var E = encryption(nonce, key);
-    // index = 0;
-    // for (var i = 0; i < 4; i ++){
-    //     for (var j = 0; j < 4; j++){
-    //         E[j][i] = E[j][i] ^ plain_text.charCodeAt(index); 
-    //         index++;
-    //     }
-    // }
-    // print_matrix(E);
-    //
-    // var D = decryption(E, key);
-    // print_matrix(D);
-    // console.log("Original text = ", byteToString(D));
 }
