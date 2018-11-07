@@ -1,6 +1,9 @@
-const R = 11;
-const N = 4;
+// AES-128 implementation
 
+const R = 11;   // 11 round
+const N = 4;     // input message is divided into block of 4x4 bytes
+
+// S-box
 const S =
 [
     0x63, 0x7C, 0x77, 0x7B, 0xF2, 0x6B, 0x6F, 0xC5, 0x30, 0x01, 0x67, 0x2B, 0xFE, 0xD7, 0xAB, 0x76,
@@ -21,6 +24,7 @@ const S =
     0x8C, 0xA1, 0x89, 0x0D, 0xBF, 0xE6, 0x42, 0x68, 0x41, 0x99, 0x2D, 0x0F, 0xB0, 0x54, 0xBB, 0x16
 ]
 
+// inverse S-box for Decryption
 const S_i =
 [
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
@@ -41,9 +45,12 @@ const S_i =
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 ];
 
+// round constant for Rijndael key scheduling
 const rc = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36];
 
 // Input: 32-bit word w
+// Output: RotWord(SubWord(w))
+// For S-box  (SubWord) and Circular Shift Left (Rot) steps of Key Scheduling
 function rot_sub(w){
     // S-box
     first = (w >> 24) & 0xFF;
@@ -60,7 +67,9 @@ function rot_sub(w){
     return new_w;
 }
 
-// String to array of 4 32-bits word
+// Input: string str
+// Output: array of 4 32-bits words
+// Split string into array of shorter words
 function stringToWord(str){
     K_byte = [];
     for (var i = 0; i < str.length; i++) {
@@ -76,6 +85,9 @@ function stringToWord(str){
     return K;
 }
 
+// Input: original key
+// Output: 11x4 matrix; each row is a round key
+// Rijndael Key Scheduling
 function key_expansion(key){
     // Convert key (string) to K_byte (byte array)
 
@@ -102,6 +114,8 @@ function key_expansion(key){
     return round_key;
 }
 
+// Multiply by 2 in Rijndael's  Galois field. used for MixColumn step
+// Input:  a byte
 function mul_by_2(b){
     var r = b;
     var h;
@@ -116,6 +130,8 @@ function mul_by_2(b){
     return r;
 }
 
+// MixColumn Step
+// Input: a column in the 4x4 matrix that represent a block of the message
 function MixColumn(b){
     var d = [];
     d[0] =  mul_by_2(b[0]) ^ (mul_by_2(b[1]) ^ b[1]) ^ b[2] ^ b[3];
@@ -125,26 +141,35 @@ function MixColumn(b){
     return d;
 }
 
+// Multiply by 9 in Rijndael's  Galois field. used for InverseMixColumn step
+// Input:  a byte
 function mul_by_9(b){
     x = mul_by_2(mul_by_2(mul_by_2(b))) ^ b;
     return x;
 }
 
+// Multiply by 11 in Rijndael's  Galois field. used for InverseMixColumn step
+// Input:  a byte
 function mul_by_11(b){
     x = mul_by_2(mul_by_2(mul_by_2(b)) ^ b) ^ b;
     return x;
 }
 
+// Multiply by 13 in Rijndael's  Galois field. used for InverseMixColumn step
+// Input:  a byte
 function mul_by_13(b){
     x = mul_by_2(mul_by_2(mul_by_2(b) ^ b)) ^ b;
     return x;
 }
 
+// Multiply by 13 in Rijndael's  Galois field. used for InverseMixColumn step
+// Input:  a byte
 function mul_by_14(b){
     x = mul_by_2(mul_by_2(mul_by_2(b) ^ b) ^ b);
     return x;
 }
 
+//InverseMixColumn Step during decryption
 function InverseMixColumn(b){
     // x×9=(((x×2)×2)×2)+x
     // x×11=((((x×2)×2)+x)×2)+x
@@ -158,6 +183,8 @@ function InverseMixColumn(b){
     return d;
 }
 
+//SubBytes step during Encryption
+//Input: Matrix NxN A  (N=4 AES-128)
 function SubByte(A){
     new_A = A.slice();
     for (var i = 0; i < N; i++){
@@ -168,6 +195,8 @@ function SubByte(A){
     return new_A;
 }
 
+//InverseSubBytes step during Decryption
+//Input: Matrix NxN A  (N=4 AES-128)
 function InverseSubByte(A){
     new_A = A.slice();
     for (var i = 0; i < N; i++){
@@ -178,6 +207,8 @@ function InverseSubByte(A){
     return new_A;
 }
 
+//ShiftRow step during Encryption
+//Input: Matrix NxN A  (N=4 AES-128)
 function ShiftRow(A){
     new_A = A.slice();
     for (var i = 0; i < N; i++){
@@ -186,6 +217,8 @@ function ShiftRow(A){
     return new_A;
 }
 
+//InverseShiftRow step during Decryption
+//Input: Matrix NxN A  (N=4 AES-128)
 function InverseShiftRow(A){
     new_A = A.slice();
     for (var i = 0; i < N; i++){
@@ -194,12 +227,17 @@ function InverseShiftRow(A){
     return new_A;
 }
 
+//Print a matrix in hex
+//Input: Matrix NxN A  (N=4 AES-128)
 function print_matrix(A){
     for (var i = 0; i < N; i++){
         console.log(A[i][0].toString(16), '\t', A[i][1].toString(16), '\t', A[i][2].toString(16), '\t', A[i][3].toString(16));
     }
 }
 
+// ENCRYPTION of a single block of the message
+// Input: matrix NxN A representing a single block
+//        key is the original cipher key 
 function encryption(matrix, key){
     // copy to new matrix A to avoid modifying the parameter
     var A = [];
@@ -208,9 +246,6 @@ function encryption(matrix, key){
     }
     // Key expansion
     round_key_matrix = key_expansion(key);
-    // for (var i = 0; i < R; i++){
-    //     console.log(round_key_matrix[i][0].toString(16), '\t', round_key_matrix[i][1].toString(16), '\t', round_key_matrix[i][2].toString(16), '\t', round_key_matrix[i][3].toString(16));
-    // }
 
     // Initial round
     for (var i = 0; i < 4; i++){
@@ -260,6 +295,9 @@ function encryption(matrix, key){
 }
 
 
+// DECRYPTION of a single block of the message
+// Input: matrix NxN A representing a single block
+//        key is the original cipher key 
 function decryption(A, key){
     console.log('-----Decrypt----');
     round_key_matrix = key_expansion(key);
@@ -310,6 +348,8 @@ function decryption(A, key){
     return A;
 }
 
+// Input: A: array of bytes
+// Convert byteArray To String
 function byteArrayToString(A){
     var str = "";
     for (var i = 0; i < A.length; i++){
@@ -318,6 +358,8 @@ function byteArrayToString(A){
     return str;
 }
 
+// Input: A: array of bytes
+// printing an array in hex, for debugging
 function printArray(A){
     str = "";
     for (var i = 0; i < A.length; i++){
@@ -331,6 +373,7 @@ function printArray(A){
     console.log(str);
 }
 
+// Convert array to matrix, for debugging
 function arrayToMatrix(array, size){
     A = [];
     index = 0;
@@ -345,6 +388,8 @@ function arrayToMatrix(array, size){
     return A;
 }
 
+// Convert matrix to array. Convert from 2-D array representation of each block to 1-D, so later all the ciphered/deciphered blocks can be concatenated together into final output 
+// Input: matrix NxN A
 function matrixToArray(A){
     index = 0;
     array = [];
@@ -357,6 +402,7 @@ function matrixToArray(A){
     return array;
 }
 
+// for debugging
 function stringToMatrix(plain_text){
     words = stringToWord(plain_text);
     var A = [];
@@ -366,9 +412,10 @@ function stringToMatrix(plain_text){
     return A;
 }
 
-// matrix of byte
-// lowercase
-// input string
+// lowercase hex representation (i.e. 'a' instead of 'A' for 0xA)
+// Input: a string
+// To be used in CTR mode of operation, where 
+// cipher_text = AES(nonce,key) XOR plain_text
 function nonceToMatrix(str){
     A = [];
     for (var i = 0; i < N; i++){
@@ -392,6 +439,7 @@ function nonceToMatrix(str){
     return A;
 }
 
+// Split string into words of 16 characters
 function splitText(str){
     index = 0;
     words = [];
@@ -402,22 +450,51 @@ function splitText(str){
     return words;
 }
 
+// concatenate the 64-bit nonce and 64-bit counter
+// Input: nonce: string form (e.g. numeircal value of nonce is 0xa3 then nonce ="a3"
+//         counter_number: numerical form
+function concat_nonce_counter(nonce, counter_number){
+    zero_array = "";
+    for (var z = 0; z < (16-(counter_number.toString(16).length)); z++){
+        zero_array = zero_array.concat('0');
+    }
+    counter = zero_array.concat(counter_number.toString(16));
+    // example: if nonce = 0xf0f1; counter_number=0x2 then nonce_concat = 000000000000f0f10000000000000002 is the input of AES CTR mode
+    return nonce.concat(counter);
+}
+
+// ******* ENCRYPTION AND DECRYTION *******************8
+// Currently there is only CTR mode of operation 
+mode_of_operation = "CTR";
+//
+// Extract INPUT CIPHER KEY
 key = process.argv[2];
 
-mode_of_operation = "CTR";
+// Extract INPUT plain text 
 plain_text = process.argv[3];
+
+// Split input to multiple blocks in case the plain_text is larger than 16 bytes
 blocks = splitText(plain_text);
 
-nonce = "f0f10000000000000000000000000001"
-nonce_matrix = nonceToMatrix(nonce);
-key = "Thats my Kung Fu";
+// According to NIST Recommendation - Appendix B, there are two valid approaches. I followed one; which is 64-bit nonce prepended to a 64-bit counter. 
+// Pick a random nonce; 0xffffff does not have any meaning
+nonce = Math.floor((Math.random() * 0xffffff) + 1).toString(16);
+
+// Prepend nonce with zeros for easier manipulation
+zero_array = "";
+for (var z = 0; z < (16-(nonce.length)); z++){
+    zero_array = zero_array.concat('0');
+}
+nonce = zero_array.concat(nonce);
 
 if (mode_of_operation == "CTR"){
     // mode of operation CTR ENCRYPTION
+    counter_number = 0x0;
     cipher_text = [];
     for (var k = 0; k < blocks.length; k++){
         plain_text = blocks[k];
-
+        nonce_counter = concat_nonce_counter(nonce, counter_number);
+        nonce_matrix = nonceToMatrix(nonce_counter);
         var E = encryption(nonce_matrix, key);
         var E_byte_array = matrixToArray(E);
         var cipher_block = [];
@@ -425,15 +502,20 @@ if (mode_of_operation == "CTR"){
             cipher_block[i] = E_byte_array[i] ^ plain_text.charCodeAt(i); 
         }
         cipher_text = cipher_text.concat(cipher_block);
+        // Increase the counter
+        counter_number = counter_number + 1;
     }
-    console.log("Cipher text = ");
+    console.log("\t-------------\tCIPHER TEXT\t-------------");
     printArray(cipher_text);
 
+    // mode of operation CTR DECRYPTION
+    counter_number = 0x0;
     input = splitText(cipher_text);
     decipher_text = [];
-    // mode of operation CTR DECRYPTION
     for (var x = 0; x < input.length; x++){
         input_block = input[x];
+        nonce_counter = concat_nonce_counter(nonce, counter_number);
+        nonce_matrix = nonceToMatrix(nonce_counter);
         var D = encryption(nonce_matrix, key);
         var D_byte_array = matrixToArray(D);
         var decipher_block = [];
@@ -441,9 +523,12 @@ if (mode_of_operation == "CTR"){
             decipher_block[i] = D_byte_array[i] ^ input_block[i]; 
         }
         decipher_text = decipher_text.concat(decipher_block);
+        // Increase the counter
+        counter_number = counter_number + 1;
     }
-    console.log("deCipher text = ");
+    console.log("\t-------------\tDECIPHER TEXT\t-------------");
     console.log(byteArrayToString(decipher_text));
 } else {
+    // TODO
     console.log('TODO OTHER MODE');
 }
